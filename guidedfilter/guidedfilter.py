@@ -9,7 +9,7 @@ def read():
     args = sys.argv
     pil_img = Image.open(args[1])
     img = array(pil_img)
-    (height, width, channel) = img.shape
+    (height, width) = img.shape[0:2]
     t = array([[1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1],
@@ -19,9 +19,40 @@ def read():
                 [1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1]])
     boxfilter(t, 3)
+    guidedfilter(t,t,3,1)
     pil_img2 = Image.fromarray(uint8(img))
     outname = args[1] + ".jpg"
     pil_img2.save(outname)
+
+def guidedfilter(I, p, r, eps):
+    """
+    GUIDEDFILTER: O(1) time implementation of guided filter.
+
+    ----------
+    :param I: guidance image (should be a gray-scale/single channel image)
+    :param p: filtering input image (should be a gray-scale/single channel image)
+    :param r: local window radius
+    :param eps: regularization parameter
+    :return:
+    """
+    (hei, wid) = I.shape[0:2]
+    N = boxfilter(ones((hei,wid)), r)
+    mean_I = divide(boxfilter(I, r), N)
+    mean_p = divide(boxfilter(p, r), N)
+    mean_Ip = divide(boxfilter(multiply(I, p), r), N)
+    cov_Ip = mean_Ip - multiply(mean_I, mean_p)
+
+    mean_II = divide(boxfilter(multiply(I, I), r), N)
+    var_I = mean_II - multiply(mean_I, mean_I)
+
+    a = divide(cov_Ip, (var_I + eps))
+    b = mean_p - multiply(a, mean_I)
+
+    mean_a = divide(boxfilter(a, r), N)
+    mean_b = divide(boxfilter(b, r), N)
+
+    dst = multiply(mean_a, I) + mean_b
+    return dst
 
 def boxfilter(src, r):
     """
@@ -32,7 +63,7 @@ def boxfilter(src, r):
     :param r: local window radius
     :return: dst(x, y)=sum(sum(src(x-r:x+r,y-r:y+r)))
     """
-    (hei, wid) = src.shape
+    (hei, wid) = src.shape[0:2]
     dst = zeros((hei, wid))
     
     cum = cumsum(src, axis=0)
